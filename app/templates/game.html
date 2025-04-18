@@ -306,6 +306,11 @@
                     amount: parseFloat(amount)
                 }),
                 success: function(response) {
+                    // Логируем полный ответ сервера для отладки
+                    console.log("Полный ответ сервера:", response);
+                    console.log("Тип ставки:", $('#bet-segment').val());
+                    console.log("Результат выиграл?", response.won);
+                    
                     // Получаем результат сервера
                     const resultNumber = parseInt(response.result.value);
                     
@@ -346,6 +351,18 @@
                     console.log(`Новое положение колеса: ${currentRotation}°, нормализованное: ${normalizedRotation}°`);
                     console.log(`Сегментов повернуто: ${segmentsRotated}, конечный индекс: ${finalIndex}`);
                     
+                    // Клиентская проверка результата
+                    const betType = $('#bet-segment').val().split(':')[0];
+                    console.log(`Тип ставки (клиент): ${betType}`);
+                    
+                    // Проверка на красное
+                    if (betType === 'red' && response.result.color === 'red') {
+                        console.log("КЛИЕНТСКАЯ ПРОВЕРКА: Ставка на красное и выпало красное. ДОЛЖЕН БЫТЬ ВЫИГРЫШ!");
+                        if (!response.won) {
+                            console.error("ОШИБКА: Сервер вернул проигрыш, хотя должен быть выигрыш!");
+                        }
+                    }
+                    
                     // Добавляем проверку, чтобы убедиться что колесо остановилось на правильном числе
                     if (finalNumber !== resultNumber) {
                         console.error(`ОШИБКА! Колесо остановилось на ${finalNumber}, но должно быть ${resultNumber}`);
@@ -355,11 +372,16 @@
                         // Обновляем UI после остановки колеса с окончательным балансом
                         $('#stars-display').text('⭐ ' + response.stars + ' звезд');
                         
+                        // Отладка результата
+                        console.log("Цвет выпавшего числа:", response.result.color);
+                        console.log("Выигрыш:", response.won);
+                        
                         if (response.won) {
                             $('#result-message').html(`
                                 <div class="alert alert-success">
                                     <i class="fas fa-trophy"></i> Поздравляем! Вы выиграли ${response.win_amount} звезд!
                                     <div>Выпало: ${response.result.value} (${response.result.color})</div>
+                                    <div>Тип ставки: ${$('#bet-segment').val()}</div>
                                 </div>
                             `);
                         } else {
@@ -367,6 +389,7 @@
                                 <div class="alert alert-danger">
                                     <i class="fas fa-times-circle"></i> Увы! Не повезло. 
                                     <div>Выпало: ${response.result.value} (${response.result.color})</div>
+                                    <div>Тип ставки: ${$('#bet-segment').val()}</div>
                                 </div>
                             `);
                         }

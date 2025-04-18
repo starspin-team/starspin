@@ -63,6 +63,24 @@ WHEEL_SEGMENTS = [
     {"value": "26", "number": 26, "color": "black", "multiplier": 36, "is_even": True},
 ]
 
+# Проверка сегментов колеса (добавляем в начале файла после определения WHEEL_SEGMENTS)
+def validate_wheel_segments():
+    red_numbers = [segment["number"] for segment in WHEEL_SEGMENTS if segment["color"] == "red"]
+    black_numbers = [segment["number"] for segment in WHEEL_SEGMENTS if segment["color"] == "black"]
+    
+    print("Красные числа:", sorted(red_numbers))
+    print("Черные числа:", sorted(black_numbers))
+    
+    # Проверка числа 25
+    segment_25 = next((segment for segment in WHEEL_SEGMENTS if segment["number"] == 25), None)
+    if segment_25:
+        print(f"Число 25: цвет = {segment_25['color']}")
+    else:
+        print("Число 25 не найдено в сегментах колеса!")
+
+# Вызываем функцию проверки при запуске сервера
+validate_wheel_segments()
+
 # Типы ставок
 BET_TYPES = {
     "number": {"multiplier": 36, "description": "Ставка на конкретное число"},
@@ -173,8 +191,15 @@ async def spin_wheel(
         if current_user.stars < bet.amount:
             raise HTTPException(status_code=400, detail="Недостаточно звезд для ставки")
         
+        # Отладка: проверка всех красных чисел
+        red_numbers = [segment["number"] for segment in WHEEL_SEGMENTS if segment["color"] == "red"]
+        print("Красные числа:", red_numbers)
+        
         # Выбор случайного сегмента
         result_segment = random.choice(WHEEL_SEGMENTS)
+        
+        # Убедимся, что number в result_segment - это число, а не строка
+        result_segment["number"] = int(result_segment["number"])
         
         # Обработка выигрыша в зависимости от типа ставки
         win_amount = 0
@@ -184,32 +209,64 @@ async def spin_wheel(
         bet_parts = bet.segment.split(':')
         bet_type = bet_parts[0]
         
+        # Отладочная информация
+        print(f"Ставка: {bet_type}, Результат: {result_segment}")
+        print(f"Полный объект ставки: {bet}")
+        print(f"Объект результата: {result_segment}")
+        
         if bet_type == "number" and len(bet_parts) > 1:
             # Ставка на конкретное число
             bet_number = bet_parts[1]
             if result_segment["value"] == bet_number:
                 win_amount = bet.amount * BET_TYPES["number"]["multiplier"]
                 won = True
+                print(f"Выигрыш на число: {bet_number} = {result_segment['value']}")
         elif bet_type == "red":
             # Ставка на красное
-            if result_segment["color"] == "red":
+            print(f"Проверка ставки на красное: цвет = '{result_segment['color']}'")
+            print(f"Тип значения цвета: {type(result_segment['color'])}")
+            
+            # Явно определяем красные числа
+            red_numbers = [segment["number"] for segment in WHEEL_SEGMENTS if segment["color"] == "red"]
+            print(f"Красные числа: {red_numbers}")
+            print(f"Выпавшее число: {result_segment['number']}, тип: {type(result_segment['number'])}")
+            
+            # Проверяем, входит ли выпавшее число в список красных чисел
+            if result_segment["number"] in red_numbers:
+                print(f"ВЫПАЛО КРАСНОЕ! {result_segment['number']} в списке красных.")
                 win_amount = bet.amount * BET_TYPES["red"]["multiplier"]
                 won = True
+                print(f"Выигрыш на красном: {won}, сумма: {win_amount}")
+            else:
+                print(f"НЕ КРАСНОЕ! {result_segment['number']} не в списке красных.")
         elif bet_type == "black":
             # Ставка на черное
-            if result_segment["color"] == "black":
+            black_numbers = [segment["number"] for segment in WHEEL_SEGMENTS if segment["color"] == "black"]
+            print(f"Черные числа: {black_numbers}")
+            print(f"Выпавшее число: {result_segment['number']}")
+            
+            if result_segment["number"] in black_numbers:
+                print(f"ВЫПАЛО ЧЕРНОЕ! {result_segment['number']} в списке черных.")
                 win_amount = bet.amount * BET_TYPES["black"]["multiplier"]
                 won = True
+            else:
+                print(f"НЕ ЧЕРНОЕ! {result_segment['number']} не в списке черных.")
         elif bet_type == "even":
             # Ставка на четное
-            if result_segment["is_even"] and result_segment["number"] != 0:
+            if result_segment["number"] != 0 and result_segment["number"] % 2 == 0:
                 win_amount = bet.amount * BET_TYPES["even"]["multiplier"]
                 won = True
+                print(f"Выигрыш на четном: {result_segment['number']}")
+            else:
+                print(f"Проигрыш на четном: {result_segment['number']}")
         elif bet_type == "odd":
             # Ставка на нечетное
-            if not result_segment["is_even"] and result_segment["number"] != 0:
+            if result_segment["number"] != 0 and result_segment["number"] % 2 == 1:
                 win_amount = bet.amount * BET_TYPES["odd"]["multiplier"]
                 won = True
+                print(f"Выигрыш на нечетном: {result_segment['number']}")
+            else:
+                print(f"Проигрыш на нечетном: {result_segment['number']}")
         
         # Обновление звезд пользователя
         current_user.stars = current_user.stars - bet.amount + win_amount
