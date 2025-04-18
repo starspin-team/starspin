@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}StarSpin - История{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h2 class="text-center mb-0">История ставок</h2>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h3>Ваш текущий баланс</h3>
+                    <div class="fs-4 fw-bold text-warning">
+                        <i class="fas fa-star"></i> {{ user.stars }} звезд
+                    </div>
+                </div>
+                
+                {% if bets %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Дата и время</th>
+                                <th>Ставка</th>
+                                <th>Сегмент</th>
+                                <th>Результат</th>
+                                <th>Выигрыш</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bet in bets %}
+                            <tr class="{{ 'table-success' if bet.win_amount > 0 else 'table-danger' }}">
+                                <td>{{ bet.created_at.strftime('%d.%m.%Y %H:%M:%S') }}</td>
+                                <td>{{ bet.amount }} ⭐</td>
+                                <td>{{ bet.segment }}</td>
+                                <td>{{ bet.result }}</td>
+                                <td>{{ bet.win_amount }} ⭐</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <p class="text-center mb-0">У вас пока нет истории ставок. <a href="/game">Сделайте свою первую ставку!</a></p>
+                </div>
+                {% endif %}
+                
+                <div class="text-center mt-4">
+                    <a href="/game" class="btn btn-primary">Назад к игре</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+{% endblock %} 

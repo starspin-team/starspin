@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}StarSpin - Главная{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="jumbotron text-center">
+            <h1 class="display-4">Добро пожаловать в StarSpin!</h1>
+            <p class="lead">Сделайте ставку, крутите колесо и выигрывайте звезды!</p>
+            <hr class="my-4">
+            <p>Начните игру прямо сейчас и испытайте свою удачу. Регистрация занимает всего минуту.</p>
+            {% if not request.cookies.get("access_token") %}
+            <div class="mt-4">
+                <a href="/register" class="btn btn-primary btn-lg me-2">Регистрация</a>
+                <a href="/login" class="btn btn-success btn-lg">Войти</a>
+            </div>
+            {% else %}
+            <div class="mt-4">
+                <a href="/game" class="btn btn-primary btn-lg">Играть сейчас</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Простые правила</h5>
+                <p class="card-text">Выберите сегмент колеса, сделайте ставку и смотрите, как колесо вращается!</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Большие выигрыши</h5>
+                <p class="card-text">Выиграйте до 10x от вашей ставки, если угадаете правильный сегмент!</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Отслеживайте вашу историю</h5>
+                <p class="card-text">Просматривайте историю всех ваших ставок и выигрышей.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h2 class="text-center mb-4">Как играть</h2>
+        <ol class="list-group list-group-numbered">
+            <li class="list-group-item">Зарегистрируйтесь и получите 1000 звезд в подарок</li>
+            <li class="list-group-item">Выберите сегмент колеса для ставки</li>
+            <li class="list-group-item">Укажите сумму ставки</li>
+            <li class="list-group-item">Нажмите кнопку "Крутить"</li>
+            <li class="list-group-item">Наблюдайте, как вращается колесо</li>
+            <li class="list-group-item">Если колесо остановится на выбранном вами сегменте, вы выиграете!</li>
+        </ol>
+    </div>
+</div>
+{% endblock %} 

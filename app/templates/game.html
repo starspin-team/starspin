@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block title %}StarSpin - Игра{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Временное решение для отображения рулетки */
+    .roulette-container {
+        width: 500px;
+        height: 500px;
+        margin: 0 auto;
+        position: relative;
+    }
+    
+    .roulette-wheel {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        position: relative;
+        transition: transform 5s cubic-bezier(0.28, 0.51, 0.11, 0.99);
+        transform: rotate(0deg);
+        background-color: #006600;
+        border: 15px solid #5a3300;
+        overflow: hidden;
+        box-shadow: 0 5px 30px rgba(0,0,0,0.5);
+    }
+    
+    .segment {
+        position: absolute;
+        width: 50%;
+        height: 50%;
+        left: 50%;
+        top: 0;
+        transform-origin: left bottom;
+        border-right: 1px solid rgba(255,255,255,0.5);
+    }
+    
+    .segment-value {
+        position: absolute;
+        left: 70%;
+        top: 10%;
+        transform: translateX(-50%);
+        color: white;
+        font-weight: bold;
+        font-size: 18px;
+        z-index: 10;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    
+    .segment-red {
+        background-color: #d40000;
+    }
+    
+    .segment-black {
+        background-color: #000000;
+    }
+    
+    .segment-green {
+        background-color: #006600;
+    }
+    
+    .wheel-center {
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        background: radial-gradient(circle, #daa520, #966800);
+        border-radius: 50%;
+        top: calc(50% - 60px);
+        left: calc(50% - 60px);
+        z-index: 20;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        border: 2px solid #fff;
+    }
+    
+    .wheel-pointer {
+        position: absolute;
+        width: 20px;
+        height: 40px;
+        background-color: #fff;
+        right: -5px;
+        top: calc(50% - 20px);
+        clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+        z-index: 20;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h2 class="text-center mb-0">StarSpin</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="roulette-container">
+                            <div class="roulette-wheel" id="roulette-wheel" style="background-image: url('/static/images/roulette.png');">
+                            </div>
+                            <div class="wheel-pointer"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-center mb-4">
+                            <h3>Ваш баланс</h3>
+                            <div class="stars-display" id="stars-display">
+                                <i class="fas fa-star"></i> {{ user.stars }} звезд
+                            </div>
+                        </div>
+                        
+                        <div class="result-message text-center mb-4" id="result-message">
+                            <!-- Здесь будет отображаться результат -->
+                        </div>
+                        
+                        <div class="betting-area">
+                            <h4 class="text-center text-white mb-3">Выберите тип ставки</h4>
+                            
+                            <div class="bet-types">
+                                <div class="bet-option bet-red" data-bet-type="red">Красное</div>
+                                <div class="bet-option bet-black" data-bet-type="black">Черное</div>
+                                <div class="bet-option bet-even" data-bet-type="even">Четное</div>
+                                <div class="bet-option bet-odd" data-bet-type="odd">Нечетное</div>
+                                <div class="bet-option bet-number" data-bet-type="number">Число</div>
+                                <div class="bet-option bet-green" data-bet-type="number:0">Зеро</div>
+                            </div>
+                            
+                            <div id="number-selection" class="number-grid" style="display: none;">
+                                {% for segment in segments %}
+                                    {% if segment.number != 0 %}
+                                        <div class="number-option {{ segment.color }}-number" data-bet-number="{{ segment.number }}">
+                                            {{ segment.number }}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            
+                            <form class="bet-form mt-4" id="bet-form">
+                                <input type="hidden" id="bet-segment" name="segment" value="red">
+                                
+                                <div class="mb-3">
+                                    <label for="amount" class="form-label text-white">Сумма ставки</label>
+                                    <input type="number" class="form-control" id="amount" name="amount" min="1" max="{{ user.stars }}" value="10" required>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-lg" id="spin-button">Крутить колесо</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+<script>
+    $(document).ready(function() {
+        let isSpinning = false;
+        let selectedBetType = 'red';
+        let selectedNumber = null;
+        
+        // Полный оборот составляет 360 градусов
+        const FULL_ROTATION = 360;
+        
+        // Храним текущее положение колеса (градусы)
+        let currentRotation = 0;
+        
+        // Определяем порядок чисел на рулетке (по часовой стрелке)
+        // Важно: этот порядок соответствует тому, как числа располагаются на изображении
+        const wheelOrder = [
+            0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 
+            23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
+        ];
+        
+        // ВАЖНОЕ ЗАМЕЧАНИЕ: Когда колесо неподвижно, стрелка указывает на число 34.
+        // При вращении мы должны учитывать это начальное положение.
+        
+        // Получаем индекс числа в массиве wheelOrder
+        function getNumberIndex(number) {
+            return wheelOrder.indexOf(parseInt(number));
+        }
+        
+        // Получаем число по индексу, которое должно быть под стрелкой
+        function getNumberAtIndex(index) {
+            // Обрабатываем случай, когда индекс выходит за границы массива
+            const normalizedIndex = (index + wheelOrder.length) % wheelOrder.length;
+            return wheelOrder[normalizedIndex];
+        }
+        
+        // Вычисляем, на сколько нужно повернуть колесо, чтобы нужное число оказалось под стрелкой
+        function calculateRotation(targetNumber) {
+            console.log(`Вычисляю поворот для числа: ${targetNumber}`);
+            
+            const targetIndex = getNumberIndex(targetNumber);
+            if (targetIndex === -1) {
+                console.error(`Номер ${targetNumber} не найден в порядке чисел на колесе!`);
+                return 0;
+            }
+            
+            // Угол для каждого числа на колесе
+            const anglePerSegment = FULL_ROTATION / wheelOrder.length;
+            
+            // Индекс числа 34, на которое указывает стрелка в начальном положении
+            const initialIndex = getNumberIndex(34);
+            
+            // Текущее положение колеса (с учетом предыдущих вращений)
+            const normalizedRotation = ((currentRotation % FULL_ROTATION) + FULL_ROTATION) % FULL_ROTATION;
+            
+            // Вычисляем текущий индекс под стрелкой после предыдущих вращений
+            // Каждый полный угол поворота anglePerSegment смещает индекс на 1
+            const segmentsRotated = Math.round(normalizedRotation / anglePerSegment);
+            
+            // Учитываем, что положительный угол вращает по часовой стрелке,
+            // то есть индексы смещаются в обратном порядке
+            const currentIndex = (initialIndex - segmentsRotated + wheelOrder.length) % wheelOrder.length;
+            
+            console.log(`Текущее положение колеса: ${normalizedRotation}°`);
+            console.log(`Стрелка сейчас указывает на индекс: ${currentIndex}, число: ${wheelOrder[currentIndex]}`);
+            
+            // Вычисляем, на сколько сегментов нужно повернуть колесо от текущего положения
+            // чтобы targetNumber оказался под стрелкой
+            let segmentsToRotate = (currentIndex - targetIndex + wheelOrder.length) % wheelOrder.length;
+            
+            // Преобразуем количество сегментов в угол
+            // Положительное значение для вращения по часовой стрелке
+            const rotation = segmentsToRotate * anglePerSegment;
+            
+            console.log(`Расчет вращения: Целевое число=${targetNumber}, индекс=${targetIndex}, 
+                         текущий индекс=${currentIndex}, сегментов=${segmentsToRotate}, 
+                         угол=${rotation}, угол на сегмент=${anglePerSegment}`);
+            
+            return rotation;
+        }
+        
+        // Обработка выбора типа ставки
+        $('.bet-option').on('click', function() {
+            $('.bet-option').removeClass('selected');
+            $(this).addClass('selected');
+            
+            selectedBetType = $(this).data('bet-type');
+            
+            // Если выбрано "Число", показываем сетку чисел
+            if (selectedBetType === 'number') {
+                $('#number-selection').show();
+                // Сбрасываем выбранное число
+                $('.number-option').removeClass('selected');
+                selectedNumber = null;
+                $('#bet-segment').val('number'); // Устанавливаем тип ставки
+            } else {
+                $('#number-selection').hide();
+                $('#bet-segment').val(selectedBetType); // Устанавливаем тип ставки
+            }
+        });
+        
+        // Обработка выбора числа
+        $('.number-option').on('click', function() {
+            $('.number-option').removeClass('selected');
+            $(this).addClass('selected');
+            
+            selectedNumber = $(this).data('bet-number');
+            $('#bet-segment').val('number:' + selectedNumber); // Устанавливаем ставку на конкретное число
+        });
+        
+        // Инициализация - красное выбрано по умолчанию
+        $('.bet-option[data-bet-type="red"]').addClass('selected');
+        
+        $('#bet-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            if (isSpinning) return;
+            
+            // Проверка, выбрано ли число, если тип ставки "number"
+            if (selectedBetType === 'number' && selectedNumber === null && $('#bet-segment').val() === 'number') {
+                alert('Пожалуйста, выберите число для ставки');
+                return;
+            }
+            
+            const amount = $('#amount').val();
+            
+            if (amount < 1) {
+                alert('Сумма ставки должна быть больше 0');
+                return;
+            }
+            
+            isSpinning = true;
+            $('#spin-button').prop('disabled', true);
+            $('#result-message').html('<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div>');
+            
+            // Уменьшаем баланс сразу после ставки
+            const currentStars = parseFloat($('#stars-display').text().split(' ')[1]);
+            $('#stars-display').text('⭐ ' + (currentStars - parseFloat(amount)) + ' звезд');
+            
+            // Запрос к API
+            $.ajax({
+                url: '/spin',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    segment: $('#bet-segment').val(),
+                    amount: parseFloat(amount)
+                }),
+                success: function(response) {
+                    // Получаем результат сервера
+                    const resultNumber = parseInt(response.result.value);
+                    
+                    // Вычисляем, на сколько нужно повернуть колесо
+                    const targetRotation = calculateRotation(resultNumber);
+                    
+                    // Добавляем полные обороты (от 3 до 5) для эффекта вращения
+                    const minRotations = 3;
+                    const maxRotations = 5;
+                    const additionalRotations = minRotations + Math.floor(Math.random() * (maxRotations - minRotations + 1));
+                    const additionalAngle = additionalRotations * FULL_ROTATION;
+                    
+                    // Новый угол поворота = текущий + дополнительные обороты + целевой угол
+                    // targetRotation уже содержит правильный знак для CSS transform
+                    const newRotation = currentRotation + additionalAngle + targetRotation;
+                    
+                    // Обновляем текущее положение колеса
+                    currentRotation = newRotation;
+                    
+                    // Применяем вращение к колесу
+                    $('#roulette-wheel').css('transform', `rotate(${currentRotation}deg)`);
+                    
+                    // Проверяем, на какое число указывает стрелка после вращения
+                    const anglePerSegment = FULL_ROTATION / wheelOrder.length;
+                    const normalizedRotation = ((currentRotation % FULL_ROTATION) + FULL_ROTATION) % FULL_ROTATION;
+                    const initialIndex = getNumberIndex(34); // Индекс числа 34 в начальном положении
+                    
+                    // Вычисляем, на сколько сегментов повернулось колесо
+                    const segmentsRotated = Math.round(normalizedRotation / anglePerSegment);
+                    
+                    // Фактический индекс под стрелкой после вращения
+                    const finalIndex = (initialIndex - segmentsRotated + wheelOrder.length) % wheelOrder.length;
+                    const finalNumber = wheelOrder[finalIndex];
+                    
+                    console.log(`Выпавшее число (сервер): ${resultNumber}`);
+                    console.log(`Число под стрелкой (UI): ${finalNumber}`);
+                    console.log(`Целевой угол: ${targetRotation}, Дополнительные обороты: ${additionalRotations}`);
+                    console.log(`Новое положение колеса: ${currentRotation}°, нормализованное: ${normalizedRotation}°`);
+                    console.log(`Сегментов повернуто: ${segmentsRotated}, конечный индекс: ${finalIndex}`);
+                    
+                    // Добавляем проверку, чтобы убедиться что колесо остановилось на правильном числе
+                    if (finalNumber !== resultNumber) {
+                        console.error(`ОШИБКА! Колесо остановилось на ${finalNumber}, но должно быть ${resultNumber}`);
+                    }
+                    
+                    setTimeout(function() {
+                        // Обновляем UI после остановки колеса с окончательным балансом
+                        $('#stars-display').text('⭐ ' + response.stars + ' звезд');
+                        
+                        if (response.won) {
+                            $('#result-message').html(`
+                                <div class="alert alert-success">
+                                    <i class="fas fa-trophy"></i> Поздравляем! Вы выиграли ${response.win_amount} звезд!
+                                    <div>Выпало: ${response.result.value} (${response.result.color})</div>
+                                </div>
+                            `);
+                        } else {
+                            $('#result-message').html(`
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-times-circle"></i> Увы! Не повезло. 
+                                    <div>Выпало: ${response.result.value} (${response.result.color})</div>
+                                </div>
+                            `);
+                        }
+                        
+                        isSpinning = false;
+                        $('#spin-button').prop('disabled', false);
+                        
+                        // Обновляем максимальную сумму ставки
+                        $('#amount').attr('max', response.stars);
+                    }, 5000); // Ждем 5 секунд до завершения анимации вращения
+                },
+                error: function(xhr) {
+                    const error = xhr.responseJSON ? xhr.responseJSON.detail : 'Произошла ошибка';
+                    $('#result-message').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i> ${error}
+                        </div>
+                    `);
+                    
+                    // Возвращаем средства в случае ошибки
+                    const currentStars = parseFloat($('#stars-display').text().split(' ')[1]);
+                    $('#stars-display').text('⭐ ' + (currentStars + parseFloat(amount)) + ' звезд');
+                    
+                    isSpinning = false;
+                    $('#spin-button').prop('disabled', false);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
