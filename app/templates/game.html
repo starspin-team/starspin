@@ -106,7 +106,7 @@
                         <div class="text-center mb-4">
                             <h3>Ваш баланс</h3>
                             <div class="stars-display" id="stars-display">
-                                <i class="fas fa-star"></i> {{ user.stars }} звезд
+                                ⭐ {{ user.stars }} звезд
                             </div>
                         </div>
                         
@@ -293,7 +293,8 @@
             $('#result-message').html('<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div>');
             
             // Уменьшаем баланс сразу после ставки
-            const currentStars = parseFloat($('#stars-display').text().split(' ')[1]);
+            const starsText = $('#stars-display').text().trim();
+            const currentStars = parseFloat(starsText.replace('⭐', '').trim());
             $('#stars-display').text('⭐ ' + (currentStars - parseFloat(amount)) + ' звезд');
             
             // Запрос к API
